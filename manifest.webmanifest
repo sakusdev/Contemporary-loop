@@ -1,0 +1,12 @@
+{
+  "name": "Contemporary loop",
+  "short_name": "Jazz loop",
+  "description": "ブラウザで作曲するContemporary Jazzエンジン",
+  "lang": "ja",
+  "start_url": "./",
+  "scope": "./",
+  "display": "standalone",
+  "background_color": "#161d1e",
+  "theme_color": "#161d1e",
+  "icons": [{ "src": "./icon.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "any" }]
+}

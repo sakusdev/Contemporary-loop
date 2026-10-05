@@ -1,0 +1,81 @@
+<!doctype html>
+<html lang="ja">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#161d1e">
+  <meta name="description" content="エレピ、ベース、ドラム、リードが奏でるContemporary Jazz。ブラウザで作曲・再生し、MIDIやWAVで保存できます。">
+  <title>Contemporary loop — Jazz generator</title>
+  <link rel="icon" href="./icon.svg" type="image/svg+xml">
+  <link rel="manifest" href="./manifest.webmanifest">
+  <link rel="stylesheet" href="./styles.css">
+</head>
+<body>
+  <a class="skip-link" href="#session">演奏へ移動</a>
+  <header class="site-header">
+    <a class="wordmark" href="./" aria-label="Contemporary loop ホーム">Contemporary <span>loop</span><span class="brand-dot" aria-hidden="true"></span></a>
+    <nav aria-label="外部リンク"><a href="https://github.com/sakusdev/Contemporary-loop" target="_blank" rel="noopener noreferrer">GitHub <span aria-hidden="true">↗</span></a></nav>
+  </header>
+  <main class="workspace">
+    <aside class="composer" aria-labelledby="composer-title">
+      <div class="panel-heading"><h1 id="composer-title">曲をつくる</h1><span id="dirty-state" class="dirty-state" hidden>未反映</span></div>
+      <p class="intro">和音とフレーズを組み立てる、<br>Contemporary Jazzの自動演奏。</p>
+      <form id="composer-form">
+        <fieldset class="style-fieldset">
+          <legend>スタイル</legend>
+          <div class="style-grid">
+            <label class="style-option"><input type="radio" name="style" value="contemporary" checked><span><strong>Contemporary</strong><small>軽やかなエレピとグルーヴ</small></span></label>
+            <label class="style-option"><input type="radio" name="style" value="fusion"><span><strong>Fusion</strong><small>跳ねるベースとシンコペーション</small></span></label>
+            <label class="style-option"><input type="radio" name="style" value="nocturne"><span><strong>After hours</strong><small>ゆったり、余白のある演奏</small></span></label>
+            <label class="style-option"><input type="radio" name="style" value="bossa"><span><strong>Bossa</strong><small>柔らかなラテンのリズム</small></span></label>
+          </div>
+        </fieldset>
+        <div class="control-field">
+          <div class="field-heading"><label for="tempo">テンポ</label><div class="tempo-value"><input id="tempo-number" type="number" min="60" max="150" step="1" aria-label="テンポ BPM"><span>BPM</span></div></div>
+          <input id="tempo" type="range" min="60" max="150" step="1" value="96">
+        </div>
+        <div class="field-pair">
+          <div class="control-field"><label for="key">キー</label><select id="key"><option value="0">C</option><option value="1">D♭</option><option value="2">D</option><option value="3">E♭</option><option value="4">E</option><option value="5">F</option><option value="6">G♭</option><option value="7">G</option><option value="8">A♭</option><option value="9">A</option><option value="10">B♭</option><option value="11">B</option></select></div>
+          <div class="control-field"><label for="bars">長さ</label><select id="bars"><option value="32">32 小節</option><option value="64" selected>64 小節</option><option value="96">96 小節</option></select></div>
+        </div>
+        <div class="control-field"><div class="field-heading"><label for="complexity">フレーズの密度</label><output for="complexity" id="complexity-output">55%</output></div><input id="complexity" type="range" min="0" max="100" value="55"><div class="range-captions"><span>余白</span><span>にぎやか</span></div></div>
+        <details class="detail-controls"><summary>演奏のニュアンス</summary>
+          <div class="control-field"><div class="field-heading"><label for="swing">スウィング</label><output for="swing" id="swing-output">12%</output></div><input id="swing" type="range" min="0" max="45" value="12"><p class="field-note">裏拍を遅らせて、リズムに揺れをつけます。</p></div>
+          <div class="control-field"><div class="field-heading"><label for="humanize">演奏のゆらぎ</label><output for="humanize" id="humanize-output">50%</output></div><input id="humanize" type="range" min="0" max="100" value="50"><p class="field-note">発音のタイミングに小さな差をつけます。</p></div>
+        </details>
+        <div class="control-field seed-field"><label for="seed">生成シード</label><div class="seed-input"><input id="seed" type="text" maxlength="80" autocomplete="off" spellcheck="false" value="late-session"><button id="random-seed" type="button" class="icon-button" aria-label="シードをランダムにする" title="シードをランダムにする"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 7h3l10 10h3M4 17h3L17 7h3M17 4l3 3-3 3M17 14l3 3-3 3"/></svg></button></div><p class="field-note">同じシードと設定で、同じ曲を再現できます。</p></div>
+        <button type="submit" id="generate" class="button primary generate-button">生成して再生 <span aria-hidden="true">→</span></button>
+      </form>
+    </aside>
+
+    <section id="session" class="session" aria-labelledby="song-title">
+      <div class="session-heading"><div><p class="eyebrow">CURRENT SESSION</p><h2 id="song-title">Contemporary loop</h2><p id="song-meta" class="song-meta">準備中…</p></div><div class="session-actions"><button id="share" type="button" class="text-button" title="同じ曲のリンクをコピーする">曲のリンク <svg viewBox="0 0 24 24" aria-hidden="true"><path d="m10 13 4-4M8 16l-1 1a4 4 0 0 1-6-6l4-4a4 4 0 0 1 6 0M16 8l1-1a4 4 0 0 1 6 6l-4 4a4 4 0 0 1-6 0" transform="translate(1 0) scale(.9)"/></svg></button></div></div>
+      <div class="performance">
+        <div class="performance-topline"><span class="status-label"><span id="playing-dot" class="status-dot"></span><span id="playback-state">READY</span></span><span id="section-name">イントロ</span><span id="bar-counter" class="mono">01 / 64</span></div>
+        <div class="roll-wrap"><canvas id="piano-roll" role="img" aria-label="現在の8小節のメロディー、和音、ベースを表示するフレーズビュー"></canvas><div class="roll-legend" aria-hidden="true"><span class="keys-color">KEYS</span><span class="lead-color">LEAD</span><span class="bass-color">BASS</span></div></div>
+        <div id="chord-strip" class="chord-strip" aria-label="現在の8小節のコード進行"></div>
+      </div>
+      <div class="transport">
+        <div class="transport-buttons"><button id="play" type="button" class="play-button" aria-label="再生"><svg id="play-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M8 5v14l11-7z"/></svg><span id="play-label">再生</span></button><button id="stop" type="button" class="icon-button" aria-label="停止して先頭に戻る" title="先頭に戻る"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M7 7h10v10H7z"/></svg></button><button id="next-song" type="button" class="icon-button" aria-label="新しい曲を生成して再生" title="新しい曲"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M19 8a8 8 0 1 0 1 8M19 3v5h-5"/></svg></button></div>
+        <div class="master-volume"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 9v6h4l5 4V5L8 9zM17 8a6 6 0 0 1 0 8M20 5a10 10 0 0 1 0 14"/></svg><label class="sr-only" for="master-volume">全体の音量</label><input type="range" id="master-volume" min="0" max="100" value="75"><output id="master-output" for="master-volume">75%</output></div>
+      </div>
+      <div class="seek-row"><span id="elapsed" class="mono">0:00</span><label class="sr-only" for="seek">再生位置</label><input id="seek" type="range" min="0" max="256" step="0.25" value="0"><span id="duration" class="mono">2:40</span></div>
+      <div id="arrangement" class="arrangement" aria-label="曲の構成。各パートを押すと移動します。"></div>
+
+      <div class="lower-panels">
+        <section class="mixer" aria-labelledby="mixer-title"><div class="panel-heading"><h3 id="mixer-title">ミックス</h3><span class="minor-label">M = ミュート / S = ソロ</span></div>
+          <div id="mixer-tracks"></div>
+          <div class="room-control"><label for="reverb">ルーム</label><input id="reverb" type="range" min="0" max="50" value="18"><output for="reverb" id="reverb-output">18%</output></div>
+        </section>
+        <section class="save-panel" aria-labelledby="save-title"><h3 id="save-title">演奏を持ち出す</h3><p>WAVは今の音色とミックスを保存。<br>MIDIはDAWで楽器やフレーズを編集できます。</p><div class="export-buttons"><button id="export-wav" type="button" class="button secondary">WAV <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3v12m-5-5 5 5 5-5M5 17v4h14v-4"/></svg></button><button id="export-midi" type="button" class="button secondary">MIDI <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3v12m-5-5 5 5 5-5M5 17v4h14v-4"/></svg></button></div><progress id="export-progress" value="0" max="1" hidden aria-label="WAV書き出しの進行状況"></progress><p id="export-note" class="field-note">現在の1曲を書き出します。</p>
+          <div class="playback-mode"><label for="playback-mode">曲が終わったら</label><select id="playback-mode"><option value="continuous">新しい曲を自動生成</option><option value="repeat">同じ曲を繰り返す</option><option value="once">停止する</option></select></div>
+        </section>
+      </div>
+      <p id="message" class="message" role="status" aria-live="polite"></p>
+    </section>
+  </main>
+  <footer class="site-footer"><span>作曲も音づくりも、このブラウザで。</span><span>4 voices · 4/4 · No samples</span></footer>
+  <noscript><p class="message">このアプリにはJavaScriptが必要です。ブラウザの設定で有効にしてください。</p></noscript>
+  <script type="module" src="./src/app.js"></script>
+</body>
+</html>
