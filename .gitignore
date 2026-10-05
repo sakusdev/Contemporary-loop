@@ -1,5 +1,8 @@
 node_modules/
 dist/
 test-results/
+.wrangler/
+.dev.vars
+.dev.vars.*
 .DS_Store
 *.log

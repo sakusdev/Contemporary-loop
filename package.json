@@ -7,14 +7,18 @@
   "scripts": {
     "start": "node scripts/serve.js",
     "build": "node scripts/build.js",
+    "dev": "npm run build && wrangler dev --port 8787",
+    "deploy": "npm run build && wrangler deploy",
+    "deploy:check": "npm run build && wrangler deploy --dry-run",
     "test": "node --test",
     "test:browser": "node scripts/browser-smoke.js",
     "check": "node scripts/check.js"
   },
   "engines": {
-    "node": ">=20"
+    "node": ">=22"
   },
   "devDependencies": {
-    "playwright": "1.58.2"
+    "playwright": "1.58.2",
+    "wrangler": "4.147.0"
   }
 }

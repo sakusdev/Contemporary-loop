@@ -11,7 +11,7 @@
 
 ## 起動
 
-Node.js 20以上で、リポジトリのディレクトリから実行します。通常の起動には依存パッケージのインストールは不要です。
+Node.js 22以上で、リポジトリのディレクトリから実行します。通常の起動には依存パッケージのインストールは不要です。
 
 ```sh
 git clone https://github.com/sakusdev/Contemporary-loop.git
@@ -43,12 +43,52 @@ Pythonがある場合は`python -m http.server 4173`でも起動できます。E
 「生成して再生」は現在の設定とシードを使います。「新しい曲」ボタンは新しいシードを作って再生します。
 設定の「未反映」は、現在の曲と入力欄の設定が違うことを示します。生成ボタンを押すと反映されます。
 
-## 静的サイトとして配信
+## Cloudflare Workersで公開
 
-`npm run build`で`dist/`に配信用のファイルだけをコピーします。ビルドにはパッケージのインストールは不要です。
-任意の静的ホスティングや自分のWebサーバーで、`dist/`の内容を配信してください。
-Cloudflare Pagesなどではビルドコマンドを`npm run build`、出力ディレクトリを`dist`にできます。
-ルートパスとサブディレクトリの両方に対応しています。サービスワーカーの更新時は`sw.js`内のキャッシュバージョンを更新してください。
+`wrangler.json`で、Workersの[Static Assets](https://developers.cloudflare.com/workers/static-assets/)から`dist/`を配信します。
+作曲・音源合成・MIDI／WAV書き出しは利用者のブラウザで実行します。Workerのサーバー処理や外部API用のシークレットは不要です。
+
+### GitHub連携で自動デプロイ
+
+Cloudflareダッシュボードの「Workers & Pages」からWorkerを作成し、GitHubの`sakusdev/Contemporary-loop`を接続します。
+[Workers Builds](https://developers.cloudflare.com/workers/ci-cd/builds/configuration/)には以下を設定してください。
+
+| 設定 | 値 |
+| --- | --- |
+| Worker名 | `contemporary-loop`（`wrangler.json`の`name`と一致） |
+| リポジトリ | `sakusdev/Contemporary-loop` |
+| 本番ブランチ | `main` |
+| ルートディレクトリ | 空欄（リポジトリのルート） |
+| ビルドコマンド | `npm run build` |
+| デプロイコマンド | `npx wrangler deploy` |
+| Node.js | 22以上 |
+
+依存パッケージはCloudflareのビルド環境でインストールされます。配信ディレクトリは`wrangler.json`の`assets.directory`に指定済みです。
+初回デプロイの成功後は、`main`へのpushで自動更新されます。公開URLはCloudflareが表示する`https://contemporary-loop.<アカウントのサブドメイン>.workers.dev`です。
+Worker名を変更する場合は、ダッシュボードと`wrangler.json`の両方を変更してください。
+
+### 手元からデプロイ
+
+```sh
+npm ci
+npx wrangler login
+npm run deploy
+```
+
+`npm run deploy`は静的ファイルをビルドしてから公開します。Cloudflareアカウントの認証はWranglerで行います。
+
+### Workersのローカル確認
+
+```sh
+npm ci
+npm run dev
+```
+
+`http://localhost:8787`でWorkersの配信を確認できます。ファイルを編集した後は、`npm run dev`を再実行して`dist/`を更新してください。
+認証なしで配信設定とデプロイ用ビルドを確認するには`npm run deploy:check`を実行します。
+
+`npm run build`で作られる`dist/`は、任意の静的ホスティングや自分のWebサーバーでも配信できます。ビルド自体には依存パッケージは不要です。
+ルートパスとサブディレクトリの両方に対応しています。キャッシュ対象のファイルを変更したときは`sw.js`内のキャッシュバージョンを更新してください。
 
 ## 検証
 
@@ -68,7 +108,7 @@ npx playwright install chromium
 npm run test:browser
 ```
 
-ブラウザテストのスクリーンショットは`test-results/`に出力されます。CIはLinux／Windowsの単体テストとChromiumのブラウザテストを実行します。
+ブラウザテストのスクリーンショットは`test-results/`に出力されます。CIはLinux／Windowsの単体テスト、Chromiumのブラウザテスト、Wranglerのデプロイドライランを実行します。
 
 ## 構成と設計資料
 
@@ -78,6 +118,7 @@ npm run test:browser
 | `src/audio.js` | ネイティブ音源、先読みスケジューラ、ミキサー、WAVレンダリング |
 | `src/midi.js` | 標準MIDIファイルのエンコード |
 | `src/app.js` | 日本語UI、再生・生成・共有・書き出し |
+| `wrangler.json` | Cloudflare Workersの名前とStatic Assets配信設定 |
 | `docs/engine.md` | 作曲・音源の設計、参照した一次資料 |
 | `docs/validation.md` | 単体テスト、実ブラウザとWAVの検証結果 |
 
