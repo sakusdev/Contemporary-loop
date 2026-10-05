@@ -1,4 +1,4 @@
-const CACHE = 'contemporary-loop-v2';
+const CACHE = 'contemporary-loop-v3';
 const ASSETS = ['./', './index.html', './styles.css', './src/app.js', './src/music.js', './src/audio.js', './src/midi.js', './manifest.webmanifest', './icon.svg'];
 self.addEventListener('install', event => {
   event.waitUntil(caches.open(CACHE).then(cache => cache.addAll(ASSETS)).then(() => self.skipWaiting()));

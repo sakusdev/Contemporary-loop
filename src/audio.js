@@ -285,7 +285,106 @@ function scheduleDrum(graph, event, at, beatSeconds) {
   return voice;
 }
 
+function pluckEnvelope(param, at, peak, attack, decay, sustain, hold, release) {
+  safeSet(param, 0, at);
+  ramp(param, Math.max(0.0001, peak), at + attack);
+  ramp(param, Math.max(0.0001, peak * sustain), at + attack + decay);
+  ramp(param, Math.max(0.0001, peak * sustain), at + attack + decay + hold);
+  ramp(param, 0, at + attack + decay + hold + release);
+}
+
+function pluckTimes(duration, attack, decay) {
+  const shapedAttack = Math.min(attack, duration * 0.2);
+  const shapedDecay = Math.min(decay, Math.max(0.003, (duration - shapedAttack) * 0.55));
+  return { attack: shapedAttack, decay: shapedDecay, hold: Math.max(0.003, duration - shapedAttack - shapedDecay) };
+}
+
+function scheduleTimbre(graph, event, at, beatSeconds, timbre) {
+  const context = graph.context;
+  const track = TRACKS.includes(event.track) ? event.track : "keys";
+  const velocity = clamp(event.velocity ?? 0.68, 0.03, 1);
+  const frequency = midiHz(clamp(Math.round(event.note ?? 60), 0, 127));
+  const duration = clamp(Number(event.duration) * beatSeconds || 0.2, 0.035, 12);
+  const atEnd = at + duration;
+  const release = timbre === "piano" ? 0.19 : timbre === "guitar" ? 0.14 : 0.16;
+  const stopAt = atEnd + release + 0.012;
+  const voice = beginVoice(graph, track, at, velocity, eventPan(event, track));
+  const brightness = 0.55 + velocity * 0.7;
+
+  if (timbre === "piano") {
+    // A small set of partials with independent decay approximates hammer/tine
+    // brightness while the low-passed fundamental keeps the body round.
+    const bodyFilter = filter(context, voice, "lowpass", frequency * (5.5 + brightness * 2), 0.65);
+    const partials = [
+      { ratio: 1, level: 0.37, attack: 0.006, decay: 0.12, sustain: 0.69 },
+      { ratio: 2.01, level: 0.115 * brightness, attack: 0.002, decay: 0.075, sustain: 0.45 },
+      { ratio: 3.98, level: 0.036 * brightness, attack: 0.001, decay: 0.045, sustain: 0.24 },
+    ];
+    for (const partial of partials) {
+      const times = pluckTimes(duration, partial.attack, partial.decay);
+      const tone = osc(context, voice, "sine", frequency * partial.ratio, at, stopAt);
+      const toneEnv = gain(context, voice, partial.level);
+      pluckEnvelope(toneEnv.gain, at, partial.level, times.attack, times.decay,
+        partial.sustain, times.hold, release);
+      tone.connect(toneEnv);
+      toneEnv.connect(bodyFilter);
+    }
+    bodyFilter.connect(voice.bus);
+    // Deterministic, very brief hammer noise; its own envelope closes the gate.
+    const hammer = noiseVoice(graph, voice, at, 0.024, "bandpass", Math.min(5200, frequency * 7), 0.8);
+    const hammerEnv = gain(context, voice, 0.11 * brightness);
+    pluckEnvelope(hammerEnv.gain, at, 0.065 * brightness, 0.001, 0.006, 0.16, 0.002, 0.014);
+    hammer.connect(hammerEnv);
+    hammerEnv.connect(voice.bus);
+  } else if (timbre === "guitar") {
+    // Clean pluck: a warm fundamental plus a quiet second partial, with a
+    // naturally falling envelope that does not sustain like a keyboard synth.
+    const lowpass = filter(context, voice, "lowpass", Math.min(5200, frequency * (4.2 + brightness)), 0.72);
+    for (const partial of [
+      { ratio: 1, level: 0.38, attack: 0.003, decay: 0.08, sustain: 0.27 },
+      { ratio: 2.02, level: 0.075 * brightness, attack: 0.001, decay: 0.045, sustain: 0.12 },
+    ]) {
+      const times = pluckTimes(duration, partial.attack, partial.decay);
+      const tone = osc(context, voice, "triangle", frequency * partial.ratio, at, stopAt);
+      const toneEnv = gain(context, voice, partial.level);
+      pluckEnvelope(toneEnv.gain, at, partial.level, times.attack, times.decay,
+        partial.sustain, times.hold, release);
+      tone.connect(toneEnv);
+      toneEnv.connect(lowpass);
+    }
+    lowpass.connect(voice.bus);
+  } else {
+    // Rounded upright-bass pluck: low triangle body, subdued sine support,
+    // and a short woody attack with no vibrato or sustained sub-oscillator.
+    const body = osc(context, voice, "triangle", frequency, at, stopAt);
+    const bodyFilter = filter(context, voice, "lowpass", Math.min(1150, frequency * 5.2), 0.58);
+    const bodyEnv = gain(context, voice, 0.43);
+    const bodyTimes = pluckTimes(duration, 0.009, 0.11);
+    pluckEnvelope(bodyEnv.gain, at, 0.43, bodyTimes.attack, bodyTimes.decay, 0.32,
+      bodyTimes.hold, release);
+    body.connect(bodyFilter);
+    bodyFilter.connect(bodyEnv);
+    bodyEnv.connect(voice.bus);
+    const fundamental = osc(context, voice, "sine", frequency * 0.5, at, stopAt);
+    const subEnv = gain(context, voice, 0.13);
+    const subTimes = pluckTimes(duration, 0.012, 0.08);
+    pluckEnvelope(subEnv.gain, at, 0.13, subTimes.attack, subTimes.decay, 0.2,
+      subTimes.hold, release);
+    fundamental.connect(subEnv);
+    subEnv.connect(voice.bus);
+    const attack = noiseVoice(graph, voice, at, 0.022, "bandpass", Math.min(1700, frequency * 4), 0.65);
+    const attackEnv = gain(context, voice, 0.07);
+    pluckEnvelope(attackEnv.gain, at, 0.045, 0.001, 0.005, 0.12, 0.002, 0.014);
+    attack.connect(attackEnv);
+    attackEnv.connect(voice.bus);
+  }
+  return voice;
+}
+
 function scheduleNote(graph, event, at, beatSeconds) {
+  if (["piano", "guitar", "upright"].includes(event.timbre)) {
+    return scheduleTimbre(graph, event, at, beatSeconds, event.timbre);
+  }
   if (event.track === "drums") return scheduleDrum(graph, event, at, beatSeconds);
   const context = graph.context;
   const track = TRACKS.includes(event.track) ? event.track : "keys";

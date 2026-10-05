@@ -218,6 +218,63 @@ test("all audible envelopes reach silence before their source stops", async () =
   });
 });
 
+test("piano, guitar, and upright timbres keep gated envelopes on their requested track", async () => {
+  await withFakeWindow(async () => {
+    const events = [
+      { track: "bass", timbre: "piano", beat: 0, duration: 0.08, note: 60, velocity: 0.4 },
+      { track: "lead", timbre: "piano", beat: 0.5, duration: 3, note: 72, velocity: 0.95 },
+      { track: "keys", timbre: "guitar", beat: 1, duration: 0.12, note: 64 },
+      { track: "bass", timbre: "guitar", beat: 1.5, duration: 2.5, note: 52 },
+      { track: "lead", timbre: "upright", beat: 2, duration: 0.09, note: 43 },
+      { track: "bass", timbre: "upright", beat: 2.5, duration: 3.5, note: 36 },
+    ];
+    await renderWav(basicSong(events), { sampleRate: 22050, muted: { lead: true } });
+
+    const context = FakeOfflineAudioContext.last;
+    const tracks = trackGains(context);
+    assert.equal(tracks.length, 4);
+    assert.deepEqual(tracks.map((node) => node.gain.value), [0.75, 0.8, 0.65, 0]);
+    const sharedTimbreFilters = context.nodes.filter((node) => node.kind === "filter"
+      && node.connections[0]?.kind === "gain"
+      && !node.connections[0].gain.events.some((event) => event.type === "ramp")
+      && pathToTrack(node, new Set(tracks)));
+    assert.equal(sharedTimbreFilters.length, 4, "each piano/guitar note uses one shared body filter");
+    for (const sharedFilter of sharedTimbreFilters) {
+      const partialEnvelopes = context.nodes.filter((node) => node.kind === "gain"
+        && node.connections.includes(sharedFilter));
+      assert.ok(partialEnvelopes.length >= 2, "each partial must have its own envelope before the shared filter");
+      assert.ok(partialEnvelopes.every((node) => node.gain.events.at(-1)?.value === 0),
+        "each partial envelope closes before the shared filter");
+    }
+
+    const sources = context.nodes.filter((node) =>
+      (node.kind === "oscillator" || node.kind === "bufferSource") && Number.isFinite(node.stoppedAt));
+    assert.ok(sources.length >= 15, "all timbres should include their pitched and/or attack sources");
+    assert.ok(sources.length <= 18, "timbres should use only a small number of oscillators per note");
+    const routedSources = tracks.map(() => 0);
+    for (const source of sources) {
+      const route = pathToTrack(source, new Set(tracks));
+      assert.ok(route, `${source.kind} must reach a track strip`);
+      routedSources[tracks.indexOf(route.at(-1))] += 1;
+      const envelopes = route.filter((node) => node.kind === "gain"
+        && node.gain.events.some((event) => event.type === "ramp"));
+      assert.ok(envelopes.length > 0, `${source.kind} must pass through an envelope gate`);
+      for (const env of envelopes) {
+        const final = env.gain.events.at(-1);
+        assert.equal(final.value, 0, "timbre envelope must close fully");
+        assert.ok(final.time <= source.stoppedAt + 1e-9,
+          `${source.kind} stops at ${source.stoppedAt}s before its envelope ends at ${final.time}s`);
+      }
+    }
+
+    const noise = sources.filter((source) => source.kind === "bufferSource");
+    assert.ok(noise.length > 0, "acoustic attack noise should be synthesized deterministically");
+    assert.ok(noise.every((source) => source.loop && source.connections[0]?.kind === "filter"),
+      "noise must be filtered and closed by its short envelope gate");
+    assert.ok(routedSources[3] > 0, "new timbre sources still route through and obey the muted lead strip");
+  });
+});
+
 test("offline export reports progress by scheduled batches", async () => {
   await withFakeWindow(async () => {
     const progress = [];

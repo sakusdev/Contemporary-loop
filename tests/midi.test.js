@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { encodeMidi, variableLength, DRUM_NOTES } from '../src/midi.js';
-import { generateSong } from '../src/music.js';
+import { generateSong, STYLE_PRESETS } from '../src/music.js';
 
 function parseMidi(bytes) {
   const view = new DataView(bytes.buffer, bytes.byteOffset, bytes.byteLength);
@@ -36,7 +36,7 @@ test('MIDI contains valid conductor, instrument programs, tempo, markers and 4/4
   for (const events of midi.tracks) assert.equal(events.at(-1).tick, song.totalBeats * 480);
 });
 test('every MIDI note has a paired note-off with no stuck or overlapping pitches', () => {
-  for (const style of ['contemporary', 'fusion', 'nocturne', 'bossa']) {
+  for (const style of Object.keys(STYLE_PRESETS)) {
     const song = generateSong({ seed: 'pairs', style, humanize: 0, complexity: 1 });
     for (const events of parseMidi(encodeMidi(song)).tracks.slice(1)) {
       const held = new Set();
@@ -46,6 +46,13 @@ test('every MIDI note has a paired note-off with no stuck or overlapping pitches
       }
       assert.equal(held.size, 0);
     }
+  }
+});
+test('piano-band MIDI exports carry the instruments heard in the app', () => {
+  for (const [style, programs] of [['bloom', [0, 32, 0]], ['carousel', [27, 33, 0]]]) {
+    const midi = parseMidi(encodeMidi(generateSong({ seed: 'band-midi', style })));
+    assert.deepEqual(midi.tracks.slice(1, 4).map(events => events.find(event => (event.status & 240) === 192).data[0]), programs);
+    assert.ok(midi.tracks[4].filter(event => (event.status & 240) === 144).every(event => (event.status & 15) === 9));
   }
 });
 test('export respects mix mute, zero levels, and GM drum channel 10', () => {

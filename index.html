@@ -4,7 +4,7 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <meta name="theme-color" content="#161d1e">
-  <meta name="description" content="エレピ、ベース、ドラム、リードが奏でるContemporary Jazz。ブラウザで作曲・再生し、MIDIやWAVで保存できます。">
+  <meta name="description" content="ピアノ、ギター、エレピが奏でるContemporary Jazz。ブラウザで作曲・再生し、MIDIやWAVで保存できます。">
   <title>Contemporary loop — Jazz generator</title>
   <link rel="icon" href="./icon.svg" type="image/svg+xml">
   <link rel="manifest" href="./manifest.webmanifest">
@@ -24,6 +24,8 @@
         <fieldset class="style-fieldset">
           <legend>スタイル</legend>
           <div class="style-grid">
+            <label class="style-option"><input type="radio" name="style" value="bloom"><span><strong>Gardenia系</strong><small>PAO · ピアノ・トリオ</small></span></label>
+            <label class="style-option"><input type="radio" name="style" value="carousel"><span><strong>Ferris Wheel系</strong><small>bohemianvoodoo · 4人編成</small></span></label>
             <label class="style-option"><input type="radio" name="style" value="contemporary" checked><span><strong>Contemporary</strong><small>軽やかなエレピとグルーヴ</small></span></label>
             <label class="style-option"><input type="radio" name="style" value="fusion"><span><strong>Fusion</strong><small>跳ねるベースとシンコペーション</small></span></label>
             <label class="style-option"><input type="radio" name="style" value="nocturne"><span><strong>After hours</strong><small>ゆったり、余白のある演奏</small></span></label>
@@ -52,7 +54,7 @@
       <div class="session-heading"><div><p class="eyebrow">CURRENT SESSION</p><h2 id="song-title">Contemporary loop</h2><p id="song-meta" class="song-meta">準備中…</p></div><div class="session-actions"><button id="share" type="button" class="text-button" title="同じ曲のリンクをコピーする">曲のリンク <svg viewBox="0 0 24 24" aria-hidden="true"><path d="m10 13 4-4M8 16l-1 1a4 4 0 0 1-6-6l4-4a4 4 0 0 1 6 0M16 8l1-1a4 4 0 0 1 6 6l-4 4a4 4 0 0 1-6 0" transform="translate(1 0) scale(.9)"/></svg></button></div></div>
       <div class="performance">
         <div class="performance-topline"><span class="status-label"><span id="playing-dot" class="status-dot"></span><span id="playback-state">READY</span></span><span id="section-name">イントロ</span><span id="bar-counter" class="mono">01 / 64</span></div>
-        <div class="roll-wrap"><canvas id="piano-roll" role="img" aria-label="現在の8小節のメロディー、和音、ベースを表示するフレーズビュー"></canvas><div class="roll-legend" aria-hidden="true"><span class="keys-color">KEYS</span><span class="lead-color">LEAD</span><span class="bass-color">BASS</span></div></div>
+        <div class="roll-wrap"><canvas id="piano-roll" role="img" aria-label="現在の8小節のメロディー、和音、ベースを表示するフレーズビュー"></canvas><div class="roll-legend" aria-hidden="true"><span id="legend-keys" class="keys-color">KEYS</span><span id="legend-lead" class="lead-color">LEAD</span><span class="bass-color">BASS</span></div></div>
         <div id="chord-strip" class="chord-strip" aria-label="現在の8小節のコード進行"></div>
       </div>
       <div class="transport">

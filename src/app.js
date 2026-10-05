@@ -24,9 +24,12 @@ const player = new JazzPlayer({ onState: updateState, onEnded: () => handleEnded
 function initialSettings() {
   const query = new URLSearchParams(location.search);
   const settings = { ...DEFAULT_SETTINGS, bars: 64, seed: 'late-session', ...(saved.settings && typeof saved.settings === 'object' ? saved.settings : {}) };
-  if (query.has('seed')) {
-    for (const key of ['seed', 'style', 'key', 'tempo', 'bars', 'complexity', 'swing', 'humanize']) if (query.has(key)) settings[key] = query.get(key);
+  const preset = Object.hasOwn(STYLE_PRESETS, query.get('style')) ? STYLE_PRESETS[query.get('style')] : null;
+  if (preset) {
+    settings.tempo = preset.tempo; settings.swing = preset.swing;
+    settings.complexity = preset.complexity ?? DEFAULT_SETTINGS.complexity;
   }
+  for (const key of ['seed', 'style', 'key', 'tempo', 'bars', 'complexity', 'swing', 'humanize']) if (query.has(key)) settings[key] = query.get(key);
   return normalizeSettings(settings);
 }
 function controlsSettings() {
@@ -128,6 +131,16 @@ async function handleEnded() {
   }
 }
 function renderSong() {
+  const preset = STYLE_PRESETS[song.settings.style];
+  for (const [track, info] of Object.entries(TRACK_INFO)) {
+    const name = preset.trackNames?.[track] || info.name;
+    $('track-' + track).querySelector('.track-name').textContent = name;
+    $('mute-' + track).setAttribute('aria-label', name + 'をミュート');
+    $('solo-' + track).setAttribute('aria-label', name + 'をソロ');
+    $('level-' + track).setAttribute('aria-label', name + 'の音量');
+  }
+  $('legend-keys').textContent = preset.legends?.keys || 'KEYS';
+  $('legend-lead').textContent = preset.legends?.lead || 'LEAD';
   $('song-title').textContent = song.title;
   $('song-meta').textContent = `${STYLE_PRESETS[song.settings.style].name} · ${NOTE_NAMES[song.settings.key]} · ${song.settings.tempo} BPM · ${song.bars} 小節`;
   $('seek').max = song.totalBeats; $('seek').value = 0;
@@ -218,7 +231,7 @@ $('generate-seed').addEventListener('click', () => generate(controlsSettings(), 
 $('composer-form').addEventListener('input', event => { if (event.target.id === 'tempo') $('tempo-number').value = $('tempo').value; markDirty(); });
 $('tempo-number').addEventListener('input', event => { const value = Number(event.target.value); if (value >= 60 && value <= 150) $('tempo').value = Math.round(value); markDirty(); });
 $('tempo-number').addEventListener('change', () => { $('tempo').value = normalizeSettings({ tempo: $('tempo-number').value }).tempo; $('tempo-number').value = $('tempo').value; markDirty(); });
-document.querySelectorAll('input[name=style]').forEach(input => input.addEventListener('change', () => { const preset = STYLE_PRESETS[input.value]; $('tempo').value = preset.tempo; $('tempo-number').value = preset.tempo; $('swing').value = Math.round(preset.swing * 100); markDirty(); }));
+document.querySelectorAll('input[name=style]').forEach(input => input.addEventListener('change', () => { const preset = STYLE_PRESETS[input.value]; $('tempo').value = preset.tempo; $('tempo-number').value = preset.tempo; $('swing').value = Math.round(preset.swing * 100); if (preset.complexity != null) $('complexity').value = Math.round(preset.complexity * 100); markDirty(); }));
 $('random-seed').addEventListener('click', () => { $('seed').value = randomSeed(); markDirty(); });
 $('play').addEventListener('click', () => { if (player.playing) { player.pause(); needsDraw = true; } else playSong().catch(showError); });
 $('stop').addEventListener('click', () => { player.stop(); needsDraw = true; });

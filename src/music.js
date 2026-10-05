@@ -3,6 +3,10 @@
 export const NOTE_NAMES = ["C", "C♯", "D", "D♯", "E", "F", "F♯", "G", "G♯", "A", "A♯", "B"];
 
 export const STYLE_PRESETS = {
+  bloom: { name: "Gardenia系", description: "ピアノ・トリオ、静けさから躍動へ", tempo: 126, swing: 0.02, complexity: 0.58,
+    trackNames: { keys: "ピアノ伴奏", bass: "コントラバス", drums: "ドラム", lead: "ピアノ旋律" }, legends: { keys: "PIANO LH", lead: "PIANO RH" } },
+  carousel: { name: "Ferris Wheel系", description: "ピアノとギター、旋律と温かなグルーヴ", tempo: 116, swing: 0.04, complexity: 0.62,
+    trackNames: { keys: "ギター", bass: "ベース", drums: "ドラム", lead: "ピアノ" }, legends: { keys: "GUITAR", lead: "PIANO" } },
   contemporary: { name: "コンテンポラリー", description: "浮遊感のあるコードと余白のあるグルーヴ", tempo: 94, swing: 0.12 },
   fusion: { name: "ジャズ・フュージョン", description: "しなやかなベースと熱を帯びたリズム", tempo: 108, swing: 0.08 },
   nocturne: { name: "ノクターン", description: "夜更けの静けさをたたえたスロウ・ジャズ", tempo: 72, swing: 0.18 },
@@ -54,7 +58,7 @@ export function normalizeSettings(input = {}) {
     key: mod(key, 12),
     tempo: Math.round(numeric(raw.tempo, preset.tempo, 60, 150)),
     bars,
-    complexity: numeric(raw.complexity, DEFAULT_SETTINGS.complexity, 0, 1),
+    complexity: numeric(raw.complexity, preset.complexity ?? DEFAULT_SETTINGS.complexity, 0, 1),
     swing: numeric(raw.swing, preset.swing, 0, 0.45),
     humanize: numeric(raw.humanize, DEFAULT_SETTINGS.humanize, 0, 1),
   };
@@ -178,6 +182,7 @@ function buildChords(settings, sections, rng) {
 
 function generateSong(input = {}) {
   const settings = normalizeSettings(input);
+  if (settings.style === "bloom" || settings.style === "carousel") return generatePianoMood(settings);
   const sections = makeForm(settings.bars);
   const chordRng = rngFor(settings.seed, "harmony");
   const chords = buildChords(settings, sections, chordRng);
@@ -350,6 +355,185 @@ function generateSong(input = {}) {
   const publicChords = chords.map(({ tones, ...chord }) => chord);
   return { title, seed: settings.seed, settings, bars: settings.bars, totalBeats, events, chords: publicChords,
     sections: sections.map(({ name, startBar, bars: length }) => ({ name, startBar, bars: length })) };
+}
+
+// Independent, original piano-band arrangements. Offsets are relative to the
+// selected tonic; these are harmonic palettes, not transcriptions of the references.
+const PIANO_MOODS = {
+  bloom: {
+    mode: [0, 2, 4, 5, 7, 9, 11], tonic: "maj9",
+    instruments: { keys: "piano", bass: "upright", lead: "piano" },
+    cycles: [
+      [[0, "maj9"], [9, "min9"], [5, "maj9s11"], [7, "dom13sus"], [4, "min9"], [9, "min11"], [2, "min9"], [7, "dom9"]],
+      [[0, "sixNine"], [4, "min9"], [5, "maj9"], [2, "min11"], [9, "min9"], [5, "maj9s11"], [2, "min9"], [7, "dom13sus"]],
+      [[9, "min9"], [5, "maj9"], [0, "maj9"], [7, "dom13sus"], [2, "min9"], [4, "min9"], [5, "maj9s11"], [7, "dom9"]],
+    ],
+    bridge: [[2, "min9"], [7, "dom9"], [0, "maj9"], [5, "maj9s11"], [11, "dim9"], [4, "dom7alt"], [9, "min9"], [7, "dom13sus"]],
+    rhythms: [
+      [0, 0.75, 1.5, 2.5, 3.5, 4, 5, 6.5, 8, 9.5, 11, 12, 13.5, 14.75],
+      [0.5, 1.5, 2, 3.5, 4, 5.5, 7, 8, 8.75, 10, 11.5, 12, 13, 14.5],
+    ],
+    contours: [[0, 2, 4, 3, 2, 1, 3, 2, 4, 5, 3, 2, 1, 0], [2, 3, 5, 4, 2, 1, 0, 2, 3, 4, 2, 1, -1, 0]],
+    titles: ["Petal Light", "Morning Bloom", "Watercolour", "Tender Skyline"],
+  },
+  carousel: {
+    mode: [0, 2, 4, 5, 7, 9, 11], tonic: "sixNine",
+    instruments: { keys: "guitar", lead: "piano" },
+    cycles: [
+      [[0, "sixNine"], [9, "min9"], [5, "maj9s11"], [7, "dom13sus"], [4, "min9"], [9, "dom9"], [2, "min9"], [7, "dom9"]],
+      [[0, "maj9"], [4, "min9"], [5, "maj9"], [7, "dom13sus"], [9, "min11"], [5, "maj9s11"], [2, "min9"], [7, "dom9"]],
+      [[0, "sixNine"], [2, "min9"], [4, "min9"], [5, "maj9s11"], [9, "min9"], [10, "sixNine"], [5, "maj9"], [7, "dom13sus"]],
+    ],
+    bridge: [[9, "min9"], [4, "dom9"], [5, "maj9s11"], [7, "dom13sus"], [0, "maj9"], [9, "min11"], [2, "min9"], [7, "dom9"]],
+    rhythms: [
+      [0, 0.5, 1.5, 2.5, 3.5, 4, 5, 6.5, 8, 8.5, 9.5, 10.5, 11.5, 12, 12.5, 13],
+      [0.5, 1.5, 2, 3, 3.5, 4, 5.5, 7, 8, 9, 9.5, 10.5, 11.5, 12, 12.5, 13],
+    ],
+    contours: [[0, 2, 4, 3, 2, 1, 3, 4, 5, 4, 3, 2, 4, 2, 1, 0], [2, 3, 4, 2, 1, 0, 2, 3, 5, 4, 2, 1, 3, 2, -1, 0]],
+    titles: ["Turning Lights", "Orbiting Days", "Paper Horizon", "City in Motion"],
+  },
+};
+
+function generatePianoMood(settings) {
+  const profile = PIANO_MOODS[settings.style], carousel = settings.style === "carousel";
+  const lengths = settings.bars === 32 ? [4, 8, 8, 4, 4, 4] : settings.bars === 64 ? [8, 16, 12, 12, 12, 4] : [8, 24, 16, 24, 16, 8];
+  let startBar = 0;
+  const sections = makeForm(settings.bars).map((section, i) => {
+    const next = { ...section, startBar, bars: lengths[i] };
+    startBar += next.bars;
+    return next;
+  });
+  const rng = Object.fromEntries(["harmony", "keys", "bass", "drums", "lead"].map(track => [track, rngFor(settings.seed, track)]));
+  const cycle = pick(rng.harmony, profile.cycles), chords = [];
+  let priorVoicing = [60, 64, 67, 71], previousNote = null;
+  const sectionFor = bar => sections.find(section => bar >= section.startBar && bar < section.startBar + section.bars);
+  for (let bar = 0; bar < settings.bars; bar++) {
+    const section = sectionFor(bar), local = bar - section.startBar;
+    const palette = section.section === "B" ? profile.bridge : cycle;
+    const heldBars = carousel || section.section === "intro" ? 2 : 1;
+    let [offset, quality] = palette[Math.floor(local / heldBars) % palette.length];
+    if (section.section === "solo") [offset, quality] = cycle[(Math.floor(local / heldBars) + 2) % cycle.length];
+    if ((section.section === "intro" && local < 2) || bar >= settings.bars - 2) [offset, quality] = [0, profile.tonic];
+    const root = mod(settings.key + offset, 12), type = CHORD_TYPES[quality];
+    const voicing = voiceChord(root, type.piano.slice(0, 4), priorVoicing);
+    priorVoicing = voicing;
+    chords.push({ bar, beat: bar * 4, duration: 4, root, quality, name: NOTE_NAMES[root] + type.label, voicing, tones: type.tones.map(interval => mod(root + interval, 12)) });
+  }
+  const totalBeats = settings.bars * 4, events = [];
+  const add = (track, beat, duration, payload, velocity, pan = 0) => {
+    if (beat >= totalBeats) return;
+    const fraction = beat - Math.floor(beat);
+    const swing = Math.abs(fraction - 0.5) < 1e-9 ? settings.swing * 0.5 : 0;
+    const identifier = track + ":" + beat.toFixed(4) + ":" + (payload.note ?? payload.drum);
+    const human = (rngFor(settings.seed, identifier)() * 2 - 1) * settings.humanize * 0.022;
+    const onset = clamp(beat + swing + human, 0, totalBeats - 0.001);
+    events.push({ track, beat: onset, duration: clamp(duration, 0.04, totalBeats - onset), ...payload, velocity: clamp(velocity, 0.03, 1), pan,
+      ...(profile.instruments[track] ? { timbre: profile.instruments[track] } : {}) });
+  };
+  const energyFor = (section, local) => section.section === "intro" ? 0.3 + 0.35 * local / section.bars
+    : section.section === "A" ? 0.72 : section.section === "B" ? 0.88
+    : section.section === "solo" ? 0.96 : section.section === "reprise" ? 1.08 : 0.58;
+
+  for (let bar = 0; bar < settings.bars; bar++) {
+    const section = sectionFor(bar), local = bar - section.startBar, chord = chords[bar], energy = energyFor(section, local);
+    const intro = section.section === "intro", ending = section.section === "ending", final = bar === settings.bars - 1;
+    if (final) chord.voicing.forEach((note, i) => add("keys", bar * 4, 3.7, { note }, 0.32, -0.2 + i * 0.04));
+    else if (carousel) {
+      // Syncopated comping leaves room for the piano; every fourth bar answers it.
+      const guitarNotes = chord.voicing.map(note => note > 76 ? note - 12 : note);
+      const response = !intro && !ending && local % 4 === 3;
+      const hits = intro ? [0, 2] : ending ? [0, 1.5, 3] : response ? [0, 1, 1.5] : [0, 1, 1.5, 2.5, 3, 3.5];
+      hits.forEach((beat, i) => {
+        add("keys", bar * 4 + beat, intro ? 0.85 : 0.46, { note: guitarNotes[(i + local % 2) % guitarNotes.length] }, (0.27 + rng.keys() * 0.09) * energy, -0.23);
+        if (!intro && i % 3 === 0) add("keys", bar * 4 + beat + 0.025, 0.42, { note: guitarNotes[(i + 2) % guitarNotes.length] }, 0.17 * energy, -0.23);
+      });
+      if (response) [2.5, 3.25, 3.75].forEach((beat, i) => add("keys", bar * 4 + beat, 0.38, { note: guitarNotes[(3 - i + local) % guitarNotes.length] }, 0.34 * energy, -0.23));
+    } else {
+      const hits = intro ? [0] : ending ? [0, 2.5] : [0, 1.5, 3];
+      for (const beat of hits) chord.voicing.forEach((note, i) => add("keys", bar * 4 + beat + i * 0.025, intro ? 1.8 : 0.55,
+        { note: note > 76 ? note - 12 : note }, (0.23 + rng.keys() * 0.1) * energy, -0.17 + i * 0.025));
+      if (!intro && !ending && rng.keys() < settings.complexity * 0.5) add("keys", bar * 4 + 2.5, 0.42, { note: chord.voicing[2] }, 0.21 * energy, -0.13);
+    }
+    const rootMidi = 36 + chord.root;
+    const bassHits = final ? [0] : intro ? [0, 2.5] : carousel ? [0, 1.5, 2.5, 3.5] : [0, 1, 2.5, 3.5];
+    bassHits.forEach((beat, i) => {
+      let note = rootMidi + (i === 1 ? 7 : 0);
+      if (!intro && !final && i === bassHits.length - 1) {
+        const nextRoot = chords[Math.min(bar + 1, chords.length - 1)].root;
+        const target = [24, 36, 48].map(octave => octave + nextRoot).sort((a, b) => Math.abs(a - rootMidi) - Math.abs(b - rootMidi))[0];
+        note = target + (rng.bass() < 0.5 ? -1 : 1);
+      }
+      add("bass", bar * 4 + beat, final ? 3.8 : intro ? 1.5 : 0.55, { note }, (0.49 + rng.bass() * 0.1) * energy);
+    });
+    const rhythmIn = !intro || local >= section.bars - 2;
+    if (rhythmIn) {
+      for (const beat of final ? [0] : carousel ? [0, 1.5, 2.5] : [0, 2, 2.75]) add("drums", bar * 4 + beat, 0.16, { drum: "kick" }, 0.6 * energy);
+      if (!ending) for (const beat of [1, 3]) add("drums", bar * 4 + beat, 0.14, { drum: intro ? "rim" : "snare" }, (0.34 + rng.drums() * 0.08) * energy);
+      if (!intro && !ending && settings.complexity > 0.35 && local % 2 === 1) add("drums", bar * 4 + 2.75, 0.08, { drum: "snare" }, 0.12 * energy);
+    }
+    if (!final) for (let i = 0; i < 8; i++) {
+      if ((intro && i % 2) || (intro && local < section.bars / 2 && i !== 6)) continue;
+      const cymbal = !carousel && !intro && i % 2 === 0 ? "ride" : "hat";
+      add("drums", bar * 4 + i * 0.5, 0.1, { drum: cymbal }, (i % 2 ? 0.12 : 0.2) * energy, 0.12);
+    }
+    const fill = rngFor(settings.seed, "piano-fill-" + bar);
+    if (!intro && !ending && (local + 1) % 4 === 0 && fill() < settings.complexity * 0.8) {
+      for (const beat of [3, 3.5, 3.75]) add("drums", bar * 4 + beat, 0.1, { drum: beat === 3 ? "snare" : "tom" }, 0.22 + fill() * 0.07);
+    }
+    if (intro) {
+      const notes = chord.voicing.slice(-2);
+      notes.forEach((note, i) => add("lead", bar * 4 + 0.5 + i * 1.5, 1.1, { note }, 0.26 * energy, 0.13));
+      previousNote = notes.at(-1);
+    }
+  }
+
+  const rhythm = pick(rng.lead, profile.rhythms), contour = pick(rng.lead, profile.contours);
+  const motif = contour.map((step, i) => step + (i % 4 === 2 ? pick(rng.lead, [-1, 0, 1]) : 0));
+  const scalePitch = step => 60 + settings.key + profile.mode[mod(step, 7)] + Math.floor(step / 7) * 12;
+  for (const section of sections) {
+    if (!["A", "B", "solo", "reprise"].includes(section.section)) continue;
+    for (let phrase = section.startBar; phrase < section.startBar + section.bars; phrase += 4) {
+      const phraseEnd = Math.min(section.startBar + section.bars, phrase + 4) * 4;
+      const phraseNo = Math.floor((phrase - section.startBar) / 4), energy = energyFor(section, phrase - section.startBar);
+      for (let i = 0; i < rhythm.length; i++) {
+        const beat = phrase * 4 + rhythm[i];
+        if (beat >= phraseEnd) break;
+        const chord = chords[Math.floor(beat / 4)];
+        const variation = section.section === "B" ? 2 : section.section === "solo" ? (phraseNo % 2 ? 3 : -1) : section.section === "reprise" ? 1 : 0;
+        const target = scalePitch(motif[i] + variation);
+        const strong = i % 4 === 0 || i === rhythm.length - 1;
+        const pool = [];
+        for (let note = 62; note <= 86; note++) {
+          const pitch = mod(note, 12);
+          const inScale = profile.mode.some(interval => mod(settings.key + interval, 12) === pitch);
+          if ((strong ? chord.tones.includes(pitch) : inScale || chord.tones.includes(pitch)) && (previousNote == null || Math.abs(note - previousNote) <= 9)) pool.push(note);
+        }
+        const note = pool.sort((a, b) => Math.abs(a - target) + Math.abs(a - (previousNote ?? target)) * 0.2 - Math.abs(b - target) - Math.abs(b - (previousNote ?? target)) * 0.2)[0] ?? previousNote ?? 72;
+        const gap = (rhythm[i + 1] ?? 16) - rhythm[i];
+        const duration = Math.min(phraseEnd - beat, carousel && i === rhythm.length - 1 ? 0.8 : Math.max(0.28, gap * 0.88));
+        const accent = strong ? 1.1 : 0.94;
+        add("lead", beat, duration, { note }, (0.43 + rng.lead() * 0.1) * energy * accent, 0.13);
+        previousNote = note;
+        if (section.section === "solo" && settings.complexity > 0.65 && gap >= 1 && rng.lead() < settings.complexity * 0.4) {
+          add("lead", beat + 0.5, 0.3, { note: clamp(note + (rng.lead() < 0.5 ? 2 : -2), 62, 86) }, 0.3 * energy, 0.13);
+        }
+      }
+    }
+  }
+  const lastChord = chords.at(-1);
+  const endNotes = Array.from({ length: 20 }, (_, i) => 64 + i).filter(note => lastChord.tones.includes(mod(note, 12)));
+  const endNote = endNotes.sort((a, b) => Math.abs(a - previousNote) - Math.abs(b - previousNote))[0] ?? 72;
+  for (let bar = settings.bars - lengths.at(-1); bar < settings.bars - 1; bar++) {
+    add("lead", bar * 4 + 0.5, 1.6, { note: chords[bar].voicing.at(-1) }, 0.29, 0.13);
+  }
+  add("lead", (settings.bars - 1) * 4, 3.7, { note: endNote }, 0.34, 0.13);
+  events.sort((a, b) => a.beat - b.beat || ["drums", "bass", "keys", "lead"].indexOf(a.track) - ["drums", "bass", "keys", "lead"].indexOf(b.track));
+  return {
+    title: pick(rngFor(settings.seed, "title"), profile.titles) + " · " + NOTE_NAMES[settings.key],
+    seed: settings.seed, settings, bars: settings.bars, totalBeats, events, instruments: { ...profile.instruments },
+    chords: chords.map(({ tones, ...chord }) => chord),
+    sections: sections.map(({ name, startBar, bars }) => ({ name, startBar, bars })),
+  };
 }
 
 function sectionAtBeat(song, beat) {

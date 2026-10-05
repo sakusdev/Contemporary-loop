@@ -4,7 +4,7 @@ import { STYLE_PRESETS, generateSong, normalizeSettings, sectionAtBeat, chordAtB
 
 test("generation is reproducible across styles, keys, and supported lengths", () => {
   for (const style of Object.keys(STYLE_PRESETS)) {
-    for (const key of [0, 4, 11]) {
+    for (let key = 0; key < 12; key++) {
       for (const bars of [32, 64, 96]) {
         const input = { seed: `repeat-${style}-${key}-${bars}`, style, key, bars };
         assert.deepEqual(generateSong(input), generateSong(input));
@@ -91,4 +91,56 @@ test("theme develops across sections and ending resolves to a sustained tonic", 
   assert.ok(bass[0].duration >= 3.7);
   assert.ok(song.events.some(event => event.track === "lead" && event.beat >= endingStart && event.duration >= 3.6));
   assert.ok(!song.events.some(event => event.track === "drums" && event.beat >= (song.bars - 2) * 4 && event.drum === "snare"));
+});
+
+test("piano-band styles retain their instruments, bounded events and cadence in every key and form", () => {
+  for (const style of ["bloom", "carousel"]) for (let key = 0; key < 12; key++) for (const bars of [32, 64, 96]) {
+    const song = generateSong({ style, key, bars, seed: "band-invariants", complexity: 1, swing: 0.45, humanize: 1 });
+    assert.equal(song.chords.length, bars);
+    assert.equal(song.sections.reduce((sum, section) => sum + section.bars, 0), bars);
+    for (const section of song.sections) {
+      const start = section.startBar * 4, end = start + section.bars * 4;
+      assert.ok(song.events.some(event => event.track === "lead" && event.beat >= start && event.beat < end));
+    }
+    for (let i = 0; i < song.events.length; i++) {
+      const event = song.events[i];
+      assert.ok(Number.isFinite(event.beat) && event.beat >= 0 && event.beat < song.totalBeats);
+      assert.ok(event.duration > 0 && event.beat + event.duration <= song.totalBeats + 1e-9);
+      assert.ok(event.velocity > 0 && event.velocity <= 1);
+      if (i) assert.ok(song.events[i - 1].beat <= event.beat);
+      if (event.track !== "drums") assert.ok(Number.isInteger(event.note) && event.note >= 0 && event.note <= 127);
+      if (song.instruments[event.track]) assert.equal(event.timbre, song.instruments[event.track]);
+    }
+    assert.ok(song.chords.slice(-2).every(chord => chord.root === key));
+    const finalBass = song.events.filter(event => event.track === "bass" && event.beat >= (bars - 1) * 4 - 0.023);
+    assert.equal(finalBass.length, 1);
+    assert.equal(finalBass[0].note % 12, key);
+    assert.ok(finalBass[0].duration >= 3.7);
+  }
+});
+
+test("band themes span complete phrases, develop, grow in energy and change with the seed", () => {
+  for (const style of ["bloom", "carousel"]) {
+    const song = generateSong({ seed: "band-theme", style, humanize: 0, swing: 0, bars: 32 });
+    const a = song.sections.find(section => section.name === "テーマ A"), b = song.sections.find(section => section.name === "テーマ B");
+    const phraseNotes = section => song.events.filter(event => event.track === "lead" && event.beat >= section.startBar * 4 && event.beat < (section.startBar + 4) * 4);
+    const theme = phraseNotes(a);
+    for (let bar = a.startBar; bar < a.startBar + 4; bar++) assert.ok(theme.some(event => Math.floor(event.beat / 4) === bar), "each theme bar contains a melody");
+    assert.notDeepEqual(theme.map(event => event.note), phraseNotes(b).map(event => event.note));
+    const averageLeadVelocity = section => {
+      const notes = song.events.filter(event => event.track === "lead" && event.beat >= section.startBar * 4 && event.beat < (section.startBar + section.bars) * 4);
+      return notes.reduce((sum, event) => sum + event.velocity, 0) / notes.length;
+    };
+    assert.ok(averageLeadVelocity(song.sections.find(section => section.name === "テーマ回帰")) > averageLeadVelocity(song.sections[0]) * 2);
+    const themes = new Set(Array.from({ length: 8 }, (_, i) => {
+      const variant = generateSong({ ...song.settings, seed: "band-variation-" + i });
+      return variant.events.filter(event => event.track === "lead" && event.beat >= a.startBar * 4 && event.beat < (a.startBar + 4) * 4).map(event => event.note).join(",");
+    }));
+    assert.ok(themes.size >= 3, "different seeds must produce different melodic phrases");
+    if (style === "carousel") {
+      const responseStart = (a.startBar + 3) * 4 + 2.5;
+      assert.ok(theme.every(event => event.beat + event.duration < responseStart), "piano leaves room for the guitar answer");
+      assert.ok(song.events.some(event => event.track === "keys" && event.beat >= responseStart && event.beat < (a.startBar + 4) * 4));
+    }
+  }
 });

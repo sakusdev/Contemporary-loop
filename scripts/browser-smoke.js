@@ -78,12 +78,64 @@ try {
   await page.locator('#seek').press('End'); await page.locator('#seek').press('ArrowLeft'); await page.locator('#play').click();
   await page.waitForFunction(seed => document.getElementById('seed').value !== seed, oldSeed);
   await page.locator('#stop').click(); await page.getByRole('button', { name: 'テーマ A', exact: true }).click();
+  for (const [style, name, tempo, keysName, bassName, legend] of [
+    ['bloom', 'Gardenia系', 126, 'ピアノ伴奏', 'コントラバス', 'PIANO LH'],
+    ['carousel', 'Ferris Wheel系', 116, 'ギター', 'ベース', 'GUITAR'],
+  ]) {
+    await page.locator(`input[name=style][value=${style}]`).check();
+    assert.equal(await page.locator('#tempo-number').inputValue(), String(tempo));
+    const seed = 'browser-' + style;
+    await page.locator('#seed').fill(seed); await page.locator('#generate-seed').click();
+    await page.locator('#playback-state').getByText('PLAYING', { exact: true }).waitFor(); await page.locator('#stop').click();
+    assert.ok((await page.locator('#song-meta').textContent()).includes(name));
+    assert.equal(await page.locator('#track-keys .track-name').textContent(), keysName);
+    assert.equal(await page.locator('#track-bass .track-name').textContent(), bassName);
+    assert.equal(await page.locator('#legend-keys').textContent(), legend);
+    const download = page.waitForEvent('download'); await page.locator('#export-midi').click();
+    const original = await readFile(await (await download).path());
+    await page.locator('#generate').click(); await page.locator('#stop').click();
+    assert.notEqual(await page.locator('#seed').inputValue(), seed);
+    const regeneratedDownload = page.waitForEvent('download'); await page.locator('#export-midi').click();
+    assert.notEqual(notesHash(await readFile(await (await regeneratedDownload).path())), notesHash(original), `${name} must regenerate its actual notes`);
+    await page.locator('#seed').fill(seed); await page.locator('#generate-seed').click(); await page.locator('#stop').click();
+    const reproduced = page.waitForEvent('download'); await page.locator('#export-midi').click();
+    assert.equal(hash(await readFile(await (await reproduced).path())), hash(original), `${name} must reproduce the entered seed`);
+  }
+  const bandAudio = await page.evaluate(async () => {
+    const { renderWav } = await import('/src/audio.js'); const { generateSong } = await import('/src/music.js');
+    const results = [];
+    for (const style of ['bloom', 'carousel']) {
+      const song = generateSong({ seed: 'native-band-' + style, style, bars: 32 });
+      const bytes = new DataView(await (await renderWav(song)).arrayBuffer());
+      const rate = bytes.getUint32(24, true), channels = bytes.getUint16(22, true);
+      const intro = song.sections[0], reprise = song.sections.find(section => section.name === 'テーマ回帰');
+      const sectionRange = section => [section.startBar * 4 * 60 / song.settings.tempo * rate, (section.startBar + section.bars) * 4 * 60 / song.settings.tempo * rate];
+      const [introStart, introEnd] = sectionRange(intro), [repriseStart, repriseEnd] = sectionRange(reprise);
+      let peak = 0, sum = 0, clipped = 0, introSum = 0, introCount = 0, repriseSum = 0, repriseCount = 0;
+      const count = (bytes.byteLength - 44) / 2;
+      for (let sample = 0; sample < count; sample++) {
+        const amplitude = Math.abs(bytes.getInt16(44 + sample * 2, true)) / 32768, frame = Math.floor(sample / channels);
+        peak = Math.max(peak, amplitude); sum += amplitude * amplitude; clipped += Number(amplitude > .999);
+        if (frame >= introStart && frame < introEnd) { introSum += amplitude * amplitude; introCount++; }
+        if (frame >= repriseStart && frame < repriseEnd) { repriseSum += amplitude * amplitude; repriseCount++; }
+      }
+      results.push({ style, bytes: bytes.byteLength, peak, rms: Math.sqrt(sum / count), clippedSamples: clipped, introRms: Math.sqrt(introSum / introCount), repriseRms: Math.sqrt(repriseSum / repriseCount) });
+    }
+    return results;
+  });
+  for (const result of bandAudio) {
+    assert.ok(result.peak > .02, `${result.style} must render audible native audio`);
+    assert.equal(result.clippedSamples, 0, `${result.style} must leave WAV headroom`);
+    assert.ok(result.repriseRms > result.introRms * 1.3, `${result.style} must grow from introduction to reprise`);
+  }
+  await page.getByRole('button', { name: 'テーマ A', exact: true }).click();
   await page.screenshot({ path: new URL('desktop.png', output).pathname, fullPage: true });
   await page.evaluate(async () => { await navigator.serviceWorker.ready; });
   await page.reload(); await ready(page); await desktop.setOffline(true); await page.reload(); await ready(page); await desktop.setOffline(false);
   const mobile = await browser.newContext({ viewport: { width: 390, height: 844 }, isMobile: true, hasTouch: true, deviceScaleFactor: 1 });
   const phone = await mobile.newPage(); phone.on('pageerror', error => errors.push(error.message));
-  await phone.goto(origin + '/?seed=mobile-check&bars=32'); await ready(phone);
+  await phone.goto(origin + '/?style=bloom&seed=mobile-check&bars=32'); await ready(phone);
+  assert.equal(await phone.locator('#tempo').inputValue(), '126');
   assert.ok(await phone.evaluate(() => document.documentElement.scrollWidth <= innerWidth), 'Mobile must not scroll horizontally');
   await phone.locator('#play').click(); await phone.getByRole('button', { name: 'テーマ A', exact: true }).click();
   await phone.locator('#next-song').click();
@@ -93,6 +145,10 @@ try {
   assert.notEqual(await phone.locator('#seed').inputValue(), mobileSeed, 'Touch generation must choose a new seed');
   await phone.locator('#playback-state').getByText('PLAYING', { exact: true }).waitFor();
   await phone.locator('#play').click(); await phone.screenshot({ path: new URL('mobile.png', output).pathname, fullPage: true });
+  await phone.goto(origin + '/?style=carousel&bars=32'); await ready(phone);
+  assert.equal(await phone.locator('input[name=style]:checked').inputValue(), 'carousel', 'Style-only links must work without a seed');
+  assert.equal(await phone.locator('#tempo').inputValue(), '116');
+  assert.equal(await phone.locator('#track-keys .track-name').textContent(), 'ギター');
   assert.deepEqual(errors, []);
-  console.log(JSON.stringify({ result: 'PASS', desktop: '1365×920', mobile: '390×844', regeneration: 'new seeds and notes on desktop and touch', midi: 'explicit seed reproduces notes', wav: { bytes: wav.length, peak: Number(peak.toFixed(4)), rms: Number(Math.sqrt(sum / samples).toFixed(4)), clippedSamples: clipped }, allMuted: 'silence', continuous: 'next seed', offline: 'reload works', pageErrors: 0 }, null, 2));
+  console.log(JSON.stringify({ result: 'PASS', desktop: '1365×920', mobile: '390×844', regeneration: 'new seeds and notes on desktop and touch', midi: 'explicit seed reproduces notes in legacy and piano-band styles', wav: { bytes: wav.length, peak: Number(peak.toFixed(4)), rms: Number(Math.sqrt(sum / samples).toFixed(4)), clippedSamples: clipped }, bandAudio: bandAudio.map(result => Object.fromEntries(Object.entries(result).map(([key, value]) => [key, typeof value === 'number' && !Number.isInteger(value) ? Number(value.toFixed(4)) : value]))), allMuted: 'silence', continuous: 'next seed', offline: 'reload works', pageErrors: 0 }, null, 2));
 } finally { if (browser) await browser.close(); server.kill(); }

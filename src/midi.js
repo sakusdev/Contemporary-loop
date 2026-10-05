@@ -6,6 +6,11 @@ export const MIDI_TRACKS = {
   drums: { name: 'Drums', channel: 9 },
 };
 export const DRUM_NOTES = { kick: 36, snare: 38, hat: 42, openHat: 46, ride: 51, tom: 45, rim: 37, shaker: 70 };
+const MIDI_SOUNDS = {
+  piano: { name: 'Acoustic piano', program: 0 },
+  guitar: { name: 'Clean guitar', program: 27 },
+  upright: { name: 'Acoustic bass', program: 32 },
+};
 const PPQ = 480;
 const encoder = new TextEncoder();
 const ascii = text => Array.from(encoder.encode(text));
@@ -45,8 +50,9 @@ export function encodeMidi(song, { levels = {}, muted = {}, volume = 1 } = {}) {
   const chunks = [trackChunk(conductor, lastTick)];
 
   for (const [track, info] of Object.entries(MIDI_TRACKS)) {
-    const messages = [{ tick: 0, order: -2, bytes: meta(3, info.name) }];
-    if (info.program !== undefined) messages.push({ tick: 0, order: -1, bytes: [192 | info.channel, info.program] });
+    const sound = Object.hasOwn(MIDI_SOUNDS, song.instruments?.[track]) ? MIDI_SOUNDS[song.instruments[track]] : info;
+    const messages = [{ tick: 0, order: -2, bytes: meta(3, sound.name) }];
+    if (sound.program !== undefined) messages.push({ tick: 0, order: -1, bytes: [192 | info.channel, sound.program] });
     const level = Math.max(0, Math.min(1, (levels[track] ?? 1) * volume));
     const notes = muted[track] || level === 0 ? [] : song.events.filter(event => event.track === track).map(event => {
       const note = track === 'drums' ? DRUM_NOTES[event.drum] : event.note;
