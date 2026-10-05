@@ -101,7 +101,7 @@ function showMessage(text, error = false) {
 function showError(error) { console.error(error); showMessage('処理できませんでした。' + (error?.message || 'もう一度お試しください。'), true); }
 async function generate(settings, play = false, synchronizeControls = true) {
   if (generating) return;
-  generating = true; $('generate').disabled = true; $('next-song').disabled = true;
+  generating = true; $('generate').disabled = true; $('generate-seed').disabled = true; $('next-song').disabled = true;
   try {
     const next = generateSong(settings);
     player.stop(); song = next;
@@ -109,7 +109,10 @@ async function generate(settings, play = false, synchronizeControls = true) {
     await player.load(song); applyMixer(); renderSong(); persist();
     if (location.search) history.replaceState(null, '', shareUrl());
     if (play) await playSong();
-  } finally { generating = false; $('generate').disabled = false; $('next-song').disabled = false; }
+  } finally { generating = false; $('generate').disabled = false; $('generate-seed').disabled = false; $('next-song').disabled = false; }
+}
+function regenerate() {
+  return generate({ ...controlsSettings(), seed: randomSeed() }, true);
 }
 async function playSong() {
   await player.play();
@@ -210,7 +213,8 @@ function download(blob, extension, source = song) {
   link.href = url; link.download = `contemporary-loop-${safeSeed}.${extension}`; document.body.append(link); link.click(); link.remove(); setTimeout(() => URL.revokeObjectURL(url), 30000);
 }
 
-$('composer-form').addEventListener('submit', event => { event.preventDefault(); generate(controlsSettings(), true).catch(showError); });
+$('composer-form').addEventListener('submit', event => { event.preventDefault(); regenerate().catch(showError); });
+$('generate-seed').addEventListener('click', () => generate(controlsSettings(), true).catch(showError));
 $('composer-form').addEventListener('input', event => { if (event.target.id === 'tempo') $('tempo-number').value = $('tempo').value; markDirty(); });
 $('tempo-number').addEventListener('input', event => { const value = Number(event.target.value); if (value >= 60 && value <= 150) $('tempo').value = Math.round(value); markDirty(); });
 $('tempo-number').addEventListener('change', () => { $('tempo').value = normalizeSettings({ tempo: $('tempo-number').value }).tempo; $('tempo-number').value = $('tempo').value; markDirty(); });
@@ -218,7 +222,7 @@ document.querySelectorAll('input[name=style]').forEach(input => input.addEventLi
 $('random-seed').addEventListener('click', () => { $('seed').value = randomSeed(); markDirty(); });
 $('play').addEventListener('click', () => { if (player.playing) { player.pause(); needsDraw = true; } else playSong().catch(showError); });
 $('stop').addEventListener('click', () => { player.stop(); needsDraw = true; });
-$('next-song').addEventListener('click', () => generate({ ...controlsSettings(), seed: randomSeed() }, true).catch(showError));
+$('next-song').addEventListener('click', () => regenerate().catch(showError));
 $('seek').addEventListener('pointerdown', () => { seeking = true; });
 $('seek').addEventListener('input', () => { player.seek(Number($('seek').value)); needsDraw = true; });
 for (const event of ['pointerup', 'pointercancel', 'change', 'blur']) $('seek').addEventListener(event, () => { seeking = false; });
@@ -245,7 +249,7 @@ window.addEventListener('pagehide', () => player.pause());
 createMixer();
 if (['continuous', 'repeat', 'once'].includes(saved.mode)) $('playback-mode').value = saved.mode;
 await generate(initialSettings());
-if (!(window.AudioContext || window.webkitAudioContext)) { $('play').disabled = true; $('generate').disabled = true; $('export-wav').disabled = true; showMessage('このブラウザはWeb Audioに対応していません。新しいブラウザで開いてください。', true); }
+if (!(window.AudioContext || window.webkitAudioContext)) { $('play').disabled = true; $('generate').disabled = true; $('generate-seed').disabled = true; $('export-wav').disabled = true; showMessage('このブラウザはWeb Audioに対応していません。新しいブラウザで開いてください。', true); }
 else if (!(window.OfflineAudioContext || window.webkitOfflineAudioContext)) $('export-wav').disabled = true;
 requestAnimationFrame(frame);
 if ('serviceWorker' in navigator && (location.protocol === 'https:' || location.hostname === 'localhost' || location.hostname === '127.0.0.1')) navigator.serviceWorker.register(new URL('../sw.js', import.meta.url)).catch(() => { /* offline caching is optional */ });

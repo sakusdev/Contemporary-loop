@@ -43,8 +43,8 @@
           <div class="control-field"><div class="field-heading"><label for="swing">スウィング</label><output for="swing" id="swing-output">12%</output></div><input id="swing" type="range" min="0" max="45" value="12"><p class="field-note">裏拍を遅らせて、リズムに揺れをつけます。</p></div>
           <div class="control-field"><div class="field-heading"><label for="humanize">演奏のゆらぎ</label><output for="humanize" id="humanize-output">50%</output></div><input id="humanize" type="range" min="0" max="100" value="50"><p class="field-note">発音のタイミングに小さな差をつけます。</p></div>
         </details>
-        <div class="control-field seed-field"><label for="seed">生成シード</label><div class="seed-input"><input id="seed" type="text" maxlength="80" autocomplete="off" spellcheck="false" value="late-session"><button id="random-seed" type="button" class="icon-button" aria-label="シードをランダムにする" title="シードをランダムにする"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 7h3l10 10h3M4 17h3L17 7h3M17 4l3 3-3 3M17 14l3 3-3 3"/></svg></button></div><p class="field-note">同じシードと設定で、同じ曲を再現できます。</p></div>
-        <button type="submit" id="generate" class="button primary generate-button">生成して再生 <span aria-hidden="true">→</span></button>
+        <div class="control-field seed-field"><label for="seed">生成シード</label><div class="seed-input"><input id="seed" type="text" maxlength="80" autocomplete="off" spellcheck="false" value="late-session"><button id="random-seed" type="button" class="icon-button" aria-label="シードをランダムにする" title="シードをランダムにする"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 7h3l10 10h3M4 17h3L17 7h3M17 4l3 3-3 3M17 14l3 3-3 3"/></svg></button></div><p class="field-note">同じシードと設定で、同じ曲を再現できます。</p><button type="button" id="generate-seed" class="text-button">このシードで生成して再生</button></div>
+        <button type="submit" id="generate" class="button primary generate-button">新しい曲を生成して再生 <span aria-hidden="true">→</span></button>
       </form>
     </aside>
 

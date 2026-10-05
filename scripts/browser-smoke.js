@@ -35,12 +35,29 @@ try {
   await page.locator('input[name=style][value=fusion]').check(); assert.equal(await page.locator('#tempo').inputValue(), '108');
   await page.locator('#tempo-number').fill('150'); await page.locator('#generate').click();
   await page.locator('#playback-state').getByText('PLAYING', { exact: true }).waitFor(); await page.locator('#stop').click();
+  const firstSeed = await page.locator('#seed').inputValue();
+  assert.notEqual(firstSeed, 'browser-check', 'Generate must choose a new seed');
+  assert.equal(new URL(page.url()).searchParams.get('seed'), firstSeed, 'Shared URL must follow the new song');
   const midiDownload = page.waitForEvent('download'); await page.locator('#export-midi').click();
   const firstMidi = await readFile(await (await midiDownload).path()); assert.equal(firstMidi.subarray(0, 4).toString(), 'MThd');
   await page.locator('#generate').click(); await page.locator('#stop').click();
+  const secondSeed = await page.locator('#seed').inputValue();
+  assert.notEqual(secondSeed, firstSeed, 'Repeated generation must choose another seed');
   const midiAgain = page.waitForEvent('download'); await page.locator('#export-midi').click();
   const secondMidi = await readFile(await (await midiAgain).path());
-  assert.equal(createHash('sha256').update(firstMidi).digest('hex'), createHash('sha256').update(secondMidi).digest('hex'));
+  const hash = bytes => createHash('sha256').update(bytes).digest('hex');
+  // Compare instrument tracks, excluding conductor titles and chord labels.
+  const notesHash = bytes => hash(bytes.subarray(22 + bytes.readUInt32BE(18)));
+  assert.notEqual(notesHash(firstMidi), notesHash(secondMidi), 'Regeneration must change the actual notes');
+  await page.locator('#play').click(); await page.locator('#next-song').click();
+  await page.locator('#playback-state').getByText('PLAYING', { exact: true }).waitFor(); await page.locator('#stop').click();
+  assert.notEqual(await page.locator('#seed').inputValue(), secondSeed, 'Transport regeneration must choose another seed');
+  const nextMidiDownload = page.waitForEvent('download'); await page.locator('#export-midi').click();
+  assert.notEqual(notesHash(await readFile(await (await nextMidiDownload).path())), notesHash(secondMidi), 'Transport regeneration must change the notes while playing');
+  await page.locator('#seed').fill(firstSeed); await page.locator('#generate-seed').click(); await page.locator('#stop').click();
+  assert.equal(await page.locator('#seed').inputValue(), firstSeed, 'Seed generation must honor the entered seed');
+  const reproducedDownload = page.waitForEvent('download'); await page.locator('#export-midi').click();
+  assert.equal(hash(await readFile(await (await reproducedDownload).path())), hash(firstMidi), 'Explicit seed generation must reproduce the original notes');
   const wavDownload = page.waitForEvent('download', { timeout: 90000 }); await page.locator('#export-wav').click();
   const wav = await readFile(await (await wavDownload).path());
   assert.equal(wav.subarray(0, 4).toString(), 'RIFF'); assert.equal(wav.subarray(8, 12).toString(), 'WAVE');
@@ -69,7 +86,13 @@ try {
   await phone.goto(origin + '/?seed=mobile-check&bars=32'); await ready(phone);
   assert.ok(await phone.evaluate(() => document.documentElement.scrollWidth <= innerWidth), 'Mobile must not scroll horizontally');
   await phone.locator('#play').click(); await phone.getByRole('button', { name: 'テーマ A', exact: true }).click();
+  await phone.locator('#next-song').click();
+  assert.notEqual(await phone.locator('#seed').inputValue(), 'mobile-check', 'Touch transport regeneration must choose a new seed');
+  const mobileSeed = await phone.locator('#seed').inputValue();
+  await phone.locator('#generate').click();
+  assert.notEqual(await phone.locator('#seed').inputValue(), mobileSeed, 'Touch generation must choose a new seed');
+  await phone.locator('#playback-state').getByText('PLAYING', { exact: true }).waitFor();
   await phone.locator('#play').click(); await phone.screenshot({ path: new URL('mobile.png', output).pathname, fullPage: true });
   assert.deepEqual(errors, []);
-  console.log(JSON.stringify({ result: 'PASS', desktop: '1365×920', mobile: '390×844', midi: 'reproducible', wav: { bytes: wav.length, peak: Number(peak.toFixed(4)), rms: Number(Math.sqrt(sum / samples).toFixed(4)), clippedSamples: clipped }, allMuted: 'silence', continuous: 'next seed', offline: 'reload works', pageErrors: 0 }, null, 2));
+  console.log(JSON.stringify({ result: 'PASS', desktop: '1365×920', mobile: '390×844', regeneration: 'new seeds and notes on desktop and touch', midi: 'explicit seed reproduces notes', wav: { bytes: wav.length, peak: Number(peak.toFixed(4)), rms: Number(Math.sqrt(sum / samples).toFixed(4)), clippedSamples: clipped }, allMuted: 'silence', continuous: 'next seed', offline: 'reload works', pageErrors: 0 }, null, 2));
 } finally { if (browser) await browser.close(); server.kill(); }
